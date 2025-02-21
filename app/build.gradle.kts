@@ -112,7 +112,9 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.paging.runtime)
     ksp(libs.androidx.room.compiler)
+    implementation("androidx.room:room-paging:2.6.1")
 
     // Compose
     implementation(libs.androidx.compose.ui)

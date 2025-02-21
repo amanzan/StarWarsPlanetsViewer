@@ -14,7 +14,7 @@ class PlanetRepositoryImpl @Inject constructor(
     private val remoteDataSource: PlanetRemoteDataSource,
     private val localDataSource: PlanetLocalDataSource
 ) : PlanetRepository {
-    override suspend fun getPlanets(): Flow<Result<List<Planet>>> = flow {
+    override fun getPlanets(): Flow<Result<List<Planet>>> = flow {
         // First, emit cached data to show info instantly to the user
         val cachedPlanets = localDataSource.getPlanets()
         emit(Result.success(cachedPlanets))

@@ -22,6 +22,7 @@ fun MainNavigation() {
     ) {
         composable(NavRoutes.PlanetList.route) {
             PlanetListScreen(
+                viewModel = viewModel,
                 onPlanetClick = { planet ->
                     navController.navigate(NavRoutes.PlanetDetail.createRoute(planet.id))
                 }

@@ -1,5 +1,8 @@
 package com.luzia.starwarsplanetsviewer.data.model
 
+import androidx.annotation.Keep
+
+@Keep
 data class PlanetDto(
     val name: String,
     val climate: String,
