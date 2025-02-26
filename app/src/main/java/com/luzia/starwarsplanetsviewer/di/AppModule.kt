@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.luzia.starwarsplanetsviewer.data.local.PlanetDao
 import com.luzia.starwarsplanetsviewer.data.local.PlanetDatabase
 import com.luzia.starwarsplanetsviewer.data.local.PlanetLocalDataSource
+import com.luzia.starwarsplanetsviewer.data.remote.NetworkConnectivityInterceptor
 import com.luzia.starwarsplanetsviewer.data.remote.PlanetApi
 import com.luzia.starwarsplanetsviewer.data.remote.PlanetRemoteDataSource
 import com.luzia.starwarsplanetsviewer.data.repository.PlanetRepositoryImpl
@@ -16,8 +17,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -26,9 +29,35 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePlanetApi(): PlanetApi {
+    fun provideContext(@ApplicationContext context: Context): Context {
+        return context
+    }
+
+    @Provides
+    @Singleton
+    fun provideNetworkConnectivityInterceptor(context: Context): NetworkConnectivityInterceptor {
+        return NetworkConnectivityInterceptor(context)
+    }
+
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(networkConnectivityInterceptor: NetworkConnectivityInterceptor): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .addInterceptor(networkConnectivityInterceptor)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun providePlanetApi(okHttpClient: OkHttpClient): PlanetApi {
         return Retrofit.Builder()
             .baseUrl("https://swapi.dev/api/")
+            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(PlanetApi::class.java)

@@ -1,6 +1,8 @@
 package com.luzia.starwarsplanetsviewer.data.repository
 
 import com.luzia.starwarsplanetsviewer.data.local.PlanetLocalDataSource
+import com.luzia.starwarsplanetsviewer.data.remote.NetworkResult
+import com.luzia.starwarsplanetsviewer.data.remote.NoConnectivityException
 import com.luzia.starwarsplanetsviewer.data.remote.PlanetRemoteDataSource
 import com.luzia.starwarsplanetsviewer.domain.model.Planet
 import com.luzia.starwarsplanetsviewer.domain.repository.PlanetRepository
@@ -16,8 +18,9 @@ class PlanetRepositoryImpl @Inject constructor(
 ) : PlanetRepository {
     override fun getPlanets(): Flow<Result<List<Planet>>> = flow {
         // Start with loading from cache
+        var cachedPlanets: List<Planet> = emptyList()
         try {
-            val cachedPlanets = localDataSource.getPlanets()
+            cachedPlanets = localDataSource.getPlanets()
             // Emit cached data if available
             if (cachedPlanets.isNotEmpty()) {
                 emit(Result.success(cachedPlanets))
@@ -28,28 +31,39 @@ class PlanetRepositoryImpl @Inject constructor(
         }
 
         // Then try to fetch from remote
-        try {
-            val remotePlanets = remoteDataSource.getPlanets()
-            // Save to local database
-            localDataSource.savePlanets(remotePlanets)
-            // Emit updated data
-            emit(Result.success(remotePlanets))
-        } catch (e: Exception) {
-            // Now we emit the error if we couldn't get remote data
-            // Try to get from cache as a fallback if we haven't emitted it yet
-            val cachedPlanets = try {
-                localDataSource.getPlanets()
-            } catch (_: Exception) {
-                emptyList()
+        when (val networkResult = remoteDataSource.getPlanets()) {
+            is NetworkResult.Success -> {
+                val remotePlanets = networkResult.data
+                if (remotePlanets != cachedPlanets) {
+                    // Save to local database
+                    localDataSource.savePlanets(networkResult.data)
+                    // Emit updated data
+                    emit(Result.success(networkResult.data))
+                }
             }
-
-            if (cachedPlanets.isNotEmpty()) {
-                emit(Result.success(cachedPlanets))
-            } else {
-                emit(Result.failure(e))
+            is NetworkResult.Error -> {
+                // Handle HTTP errors
+                emit(Result.failure(Exception("Network error: ${networkResult.code} - ${networkResult.message}")))
+            }
+            is NetworkResult.NoConnection -> {
+                // Handle HTTP errors
+                emit(Result.failure(Exception("Network error: ${networkResult.message}")))
+            }
+            is NetworkResult.Exception -> {
+                // Handle exceptions including NoConnectivityException
+                val errorMessage = if (networkResult.e is NoConnectivityException) {
+                    "No internet connection. Please check your connection and try again."
+                } else {
+                    "An error occurred: ${networkResult.e.message}"
+                }
+                emit(Result.failure(Exception(errorMessage)))
+            }
+            is NetworkResult.Loading -> {
+                // No action needed for loading state
             }
         }
     }
+}
 
 
 //        // First, emit cached data to show info instantly to the user
@@ -69,4 +83,4 @@ class PlanetRepositoryImpl @Inject constructor(
 //            }
 //        }
 //    }.flowOn(Dispatchers.IO)
-}
+//}
