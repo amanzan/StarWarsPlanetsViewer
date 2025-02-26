@@ -8,5 +8,5 @@ import javax.inject.Inject
 class GetPlanetsUseCase @Inject constructor(
     private val repository: PlanetRepository
 ) {
-    suspend operator fun invoke(): Flow<Result<List<Planet>>> = repository.getPlanets()
+    operator fun invoke(): Flow<Result<List<Planet>>> = repository.getPlanets()
 }

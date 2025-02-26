@@ -15,21 +15,58 @@ class PlanetRepositoryImpl @Inject constructor(
     private val localDataSource: PlanetLocalDataSource
 ) : PlanetRepository {
     override fun getPlanets(): Flow<Result<List<Planet>>> = flow {
-        // First, emit cached data to show info instantly to the user
-        val cachedPlanets = localDataSource.getPlanets()
-        emit(Result.success(cachedPlanets))
+        // Start with loading from cache
         try {
-            // Then try to fetch fresh data and update only if data has changed
-            val remotePlanets = remoteDataSource.getPlanets()
-            if (remotePlanets != cachedPlanets) {
-                localDataSource.savePlanets(remotePlanets)
-                emit(Result.success(remotePlanets))
+            val cachedPlanets = localDataSource.getPlanets()
+            // Emit cached data if available
+            if (cachedPlanets.isNotEmpty()) {
+                emit(Result.success(cachedPlanets))
             }
         } catch (e: Exception) {
-            // Emit failure only if there's no cached data
-            if (cachedPlanets.isEmpty()) {
+            // Log cache error but don't emit yet
+            e.printStackTrace()
+        }
+
+        // Then try to fetch from remote
+        try {
+            val remotePlanets = remoteDataSource.getPlanets()
+            // Save to local database
+            localDataSource.savePlanets(remotePlanets)
+            // Emit updated data
+            emit(Result.success(remotePlanets))
+        } catch (e: Exception) {
+            // Now we emit the error if we couldn't get remote data
+            // Try to get from cache as a fallback if we haven't emitted it yet
+            val cachedPlanets = try {
+                localDataSource.getPlanets()
+            } catch (_: Exception) {
+                emptyList()
+            }
+
+            if (cachedPlanets.isNotEmpty()) {
+                emit(Result.success(cachedPlanets))
+            } else {
                 emit(Result.failure(e))
             }
         }
-    }.flowOn(Dispatchers.IO)
+    }
+
+
+//        // First, emit cached data to show info instantly to the user
+//        val cachedPlanets = localDataSource.getPlanets()
+//        emit(Result.success(cachedPlanets))
+//        try {
+//            // Then try to fetch fresh data and update only if data has changed
+//            val remotePlanets = remoteDataSource.getPlanets()
+//            if (remotePlanets != cachedPlanets) {
+//                localDataSource.savePlanets(remotePlanets)
+//                emit(Result.success(remotePlanets))
+//            }
+//        } catch (e: Exception) {
+//            // Emit failure only if there's no cached data
+//            if (cachedPlanets.isEmpty()) {
+//                emit(Result.failure(e))
+//            }
+//        }
+//    }.flowOn(Dispatchers.IO)
 }
